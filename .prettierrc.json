@@ -10,6 +10,17 @@
         "bracketSpacing": false,
         "explicitTypes": "preserve"
       }
+    },
+    {
+      "files": "*.ts",
+      "options": {
+        "printWidth": 100,
+        "tabWidth": 2,
+        "useTabs": true,
+        "singleQuote": false,
+        "bracketSpacing": false,
+        "explicitTypes": "preserve"
+      }
     }
   ]
 }

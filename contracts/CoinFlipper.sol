@@ -138,13 +138,16 @@ contract CoinFlipper is
 
 		config.supply -= 1;
 
-		uint256 value = IRoninVRFCoordinatorForConsumers(vrfCoordinator)
-			.estimateRequestRandomFee(
-				500000, // TODO -> need more accurate
-				20 gwei
-			);
+		// TODO: Uncomment bellow before deploying
+		// uint256 value = IRoninVRFCoordinatorForConsumers(vrfCoordinator)
+		// 	.estimateRequestRandomFee(
+		// 		500000, // TODO -> need more accurate
+		// 		20 gwei
+		// 	);
 
-		bytes32 reqHash = _requestRandomness(value, 500000, 20 gwei, address(this));
+		// bytes32 reqHash = _requestRandomness(value, 500000, 20 gwei, address(this));
+
+		bytes32 reqHash = bytes32(block.timestamp);
 		coinFlipData[reqHash] = VRFCoinFlipData(
 			false,
 			_choice,
@@ -152,6 +155,9 @@ contract CoinFlipper is
 			msg.sender,
 			_nftId
 		);
+
+		// TODO remove below before deploying
+		_fulfillRandomSeed(reqHash, uint256(reqHash));
 
 		return reqHash;
 	}
@@ -214,8 +220,7 @@ contract CoinFlipper is
 		if (configType == 1) {
 			payable(_data.player).transfer(config.tokenAmount * 2);
 		} else if (configType == 20) {
-			IERC20(config.tokenAddress).transferFrom(
-				address(this),
+			IERC20(config.tokenAddress).transfer(
 				_data.player,
 				config.tokenAmount * 2
 			);
@@ -230,6 +235,14 @@ contract CoinFlipper is
 		} else if (configType == 721) {
 			uint256 randomIndex = _randomSeed % (config.supply + 1); // +1 because supply is -1 compared to real supply until we transfer reward
 			uint256 randomNftId = tokenOfConfigByIndex[_data.configId][randomIndex];
+
+			// we delete this ID from our index of tokens
+			if (randomIndex != config.supply) {
+				tokenOfConfigByIndex[_data.configId][
+					randomIndex
+				] = tokenOfConfigByIndex[_data.configId][config.supply];
+			}
+			delete tokenOfConfigByIndex[_data.configId][config.supply];
 
 			IERC721(config.tokenAddress).safeTransferFrom(
 				address(this),
