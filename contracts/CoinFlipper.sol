@@ -38,20 +38,22 @@ contract CoinFlipper is
 	mapping(uint16 configId => CoinFlipConfig config) public coinFlipConfigs;
 	mapping(uint16 configId => mapping(uint256 index => uint256 id))
 		public tokenOfConfigByIndex;
-
 	mapping(bytes32 reqHash => VRFCoinFlipData data) public coinFlipData;
 	mapping(address player => uint256 winStreak) public playersWinStreak;
 
 	bool coinFlipPaused;
+	address degenRewardToken;
 
 	// ---------- Initializer ----------
 
 	function initialize(
 		address _owner,
-		address _vrfCoordinator
+		address _vrfCoordinator,
+		address _degenRewardToken
 	) public initializer {
 		__Ownable_init(_owner);
 		vrfCoordinator = _vrfCoordinator;
+		degenRewardToken = _degenRewardToken;
 	}
 
 	// ---------- Admin functions ----------
@@ -154,6 +156,19 @@ contract CoinFlipper is
 		return reqHash;
 	}
 
+	function claimDegenPrize() external {
+		require(playersWinStreak[msg.sender] >= 10);
+		playersWinStreak[msg.sender] -= 10;
+
+		IERC1155(degenRewardToken).safeTransferFrom(
+			address(this),
+			msg.sender,
+			1,
+			1,
+			""
+		);
+	}
+
 	// ---------- VRF function override ----------
 
 	function _fulfillRandomSeed(
@@ -170,8 +185,10 @@ contract CoinFlipper is
 
 		if (result == userChoice) {
 			_giveAsset(data, _randomSeed);
+			playersWinStreak[data.player] += 1;
 		} else {
 			_addToConfigPool(data);
+			playersWinStreak[data.player] = 0;
 		}
 	}
 
