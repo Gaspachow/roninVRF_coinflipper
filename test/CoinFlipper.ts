@@ -13,7 +13,7 @@ describe("CoinFlipper", function () {
 
 		const [owner, player] = await ethers.getSigners();
 
-		const CoinFlipper = await ethers.getContractFactory("CoinFlipper");
+		const CoinFlipper = await ethers.getContractFactory("CoinFlipperLocal");
 		const FakeERC20 = await ethers.getContractFactory("FakeERC20");
 		const FakeERC721 = await ethers.getContractFactory("FakeERC721");
 		const cf = await CoinFlipper.deploy();
@@ -213,7 +213,9 @@ describe("CoinFlipper", function () {
 
 				const config = await cf.coinFlipConfigs(configId);
 				const playerCf = cf.connect(player);
+				const cfAddress = await cf.getAddress();
 				const originalContractBalance = await erc721.balanceOf(await cf.getAddress());
+				const originalNftSupply = config.supply;
 				let playerWins = 0;
 				let contractWins = 0;
 
@@ -224,21 +226,21 @@ describe("CoinFlipper", function () {
 					const cfBalance = await erc721.balanceOf(await cf.getAddress());
 
 					const playerFirstNft = await erc721.tokenOfOwnerByIndex(player.address, 0);
-					console.log(playerFirstNft);
+					// console.log(playerFirstNft);
 					await playerCf.flipACoin(true, configId, playerFirstNft);
 					const newPlayerBalance = await erc721.balanceOf(player.address);
 					const newCfBalance = await erc721.balanceOf(await cf.getAddress());
 
 					if (newPlayerBalance > playerBalance) {
-						console.log("Player won!");
+						// console.log("Player won!");
 						playerWins += 1;
 						expect(newCfBalance).to.equal(cfBalance - config.tokenAmount);
 					} else {
-						console.log("Player lost!");
+						// console.log("Player lost!");
 						contractWins += 1;
 						expect(newCfBalance).to.equal(cfBalance + config.tokenAmount);
 					}
-					console.log("Player new Balance: ", newPlayerBalance.toString());
+					// console.log("Player new Balance: ", newPlayerBalance.toString());
 
 					await mine(Math.floor(Math.random() * 20));
 				}
@@ -249,8 +251,33 @@ describe("CoinFlipper", function () {
 				const expectedContractBalance =
 					originalContractBalance + amountContractWon - amountContractLost;
 
-				console.log(playerWins,contractWins,contractWins - playerWins,currentContractBalance,expectedContractBalance);
+				// console.log(
+				// 	playerWins,
+				// 	contractWins,
+				// 	contractWins - playerWins,
+				// 	currentContractBalance,
+				// 	expectedContractBalance
+				// );
 				expect(currentContractBalance).to.equal(expectedContractBalance);
+
+				// Check for config's tokenIndexes
+				const nftSupply = (await cf.coinFlipConfigs(configId)).supply;
+				expect(nftSupply).to.equal(originalNftSupply + amountContractWon - amountContractLost);
+				// console.log(nftSupply);
+				expect(nftSupply).to.equal(currentContractBalance);
+
+				for (let i = 0; i < nftSupply; i += 1) {
+					const tokenId = await cf.tokenOfConfigByIndex(configId, i);
+					const ownerOfToken = await erc721.ownerOf(tokenId);
+
+					// console.log('for ID %s | owner is %s', tokenId, ownerOfToken);
+					expect(ownerOfToken).to.be.equal(cfAddress);
+				}
+				for (let i = nftSupply; i < 100; i += BigInt(1)) {
+					const tokenId = await cf.tokenOfConfigByIndex(configId, i);
+					// console.log('ID %s', tokenId);
+					expect(tokenId).to.equal(0);
+				}
 			});
 		});
 	});
@@ -320,7 +347,7 @@ async function addERC721Config(cf: CoinFlipper, erc721: ERC721, owner: HardhatEt
 	const ids: number[] = [];
 	let counter = 0;
 
-  const cfAddress = await cf.getAddress();
+	const cfAddress = await cf.getAddress();
 	config.tokenAddress = await erc721.getAddress();
 
 	// fund contract for this config

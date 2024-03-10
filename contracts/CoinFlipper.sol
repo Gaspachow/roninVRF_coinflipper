@@ -121,12 +121,12 @@ contract CoinFlipper is
 	}
 
 	// ---------- User functions ----------
-
+	// TODO: Remove virtual when ready for deploy, in the meantime it's used to use CloinFlipperLocal
 	function flipACoin(
 		bool _choice,
 		uint16 _configId,
 		uint256 _nftId // 0 for any other type than 721
-	) external payable returns (bytes32) {
+	) external payable virtual returns (bytes32) {
 		CoinFlipConfig storage config = coinFlipConfigs[_configId];
 		require(!coinFlipPaused, "coin flips are paused");
 		require(config.supply != 0, "supply empty");
@@ -138,16 +138,14 @@ contract CoinFlipper is
 
 		config.supply -= 1;
 
-		// TODO: Uncomment bellow before deploying
-		// uint256 value = IRoninVRFCoordinatorForConsumers(vrfCoordinator)
-		// 	.estimateRequestRandomFee(
-		// 		500000, // TODO -> need more accurate
-		// 		20 gwei
-		// 	);
+		uint256 value = IRoninVRFCoordinatorForConsumers(vrfCoordinator)
+			.estimateRequestRandomFee(
+				500000, // TODO -> need more accurate
+				20 gwei
+			);
 
-		// bytes32 reqHash = _requestRandomness(value, 500000, 20 gwei, address(this));
+		bytes32 reqHash = _requestRandomness(value, 500000, 20 gwei, address(this));
 
-		bytes32 reqHash = bytes32(block.timestamp);
 		coinFlipData[reqHash] = VRFCoinFlipData(
 			false,
 			_choice,
@@ -155,9 +153,6 @@ contract CoinFlipper is
 			msg.sender,
 			_nftId
 		);
-
-		// TODO remove below before deploying
-		_fulfillRandomSeed(reqHash, uint256(reqHash));
 
 		return reqHash;
 	}
@@ -258,7 +253,7 @@ contract CoinFlipper is
 		}
 	}
 
-	function _takeAsset(CoinFlipConfig storage _config, uint256 _nftId) private {
+	function _takeAsset(CoinFlipConfig storage _config, uint256 _nftId) internal {
 		uint256 configType = _config.tokenType;
 
 		if (configType == 1) {
