@@ -44,6 +44,32 @@ contract CoinFlipper is
 	bool coinFlipPaused;
 	address degenRewardToken;
 
+	// ---------- Events ----------
+
+	event ConfigUpdated(uint256 indexed configId_, CoinFlipConfig config_);
+	event ConfigDeleted(uint256 indexed configId_);
+	event ConfigNFTAdded(
+		uint256 indexed configId_,
+		uint256 nftId_,
+		uint256 nftIndex_
+	);
+	event CoinFlipPauseToggled(bool isPaused_);
+	event CoinFlipInitiated(
+		address indexed player_,
+		uint256 indexed configId_,
+		bytes32 indexed reqHash_,
+		bool choice_,
+		uint256 nftId_
+	);
+	event CoinFlipResolved(
+		address indexed player_,
+		uint256 indexed configId_,
+		bytes32 indexed reqHash_,
+		bool playerWin_
+	);
+
+	event DegenPrizeClaimed(address indexed player_);
+
 	// ---------- Initializer ----------
 
 	function initialize(
@@ -64,6 +90,7 @@ contract CoinFlipper is
 	) external onlyOwner {
 		for (uint256 i = 0; i < _configIds.length; i += 1) {
 			coinFlipConfigs[_configIds[i]] = _configs[i];
+			emit ConfigUpdated(_configIds[i], _configs[i]);
 		}
 	}
 
@@ -76,7 +103,9 @@ contract CoinFlipper is
 		coinFlipConfigs[_configId] = _config;
 		for (uint256 i = 0; i < _indexes.length; i += 1) {
 			tokenOfConfigByIndex[_configId][_indexes[i]] = _ids[i];
+			emit ConfigNFTAdded(_configId, _ids[i], _indexes[i]);
 		}
+		emit ConfigUpdated(_configId, _config);
 	}
 
 	function deleteCoinFlipConfigs(
@@ -84,11 +113,13 @@ contract CoinFlipper is
 	) external onlyOwner {
 		for (uint256 i = 0; i < _configIds.length; i += 1) {
 			delete coinFlipConfigs[_configIds[i]];
+			emit ConfigDeleted(_configIds[i]);
 		}
 	}
 
 	function togglePauseFlipping(bool _value) external onlyOwner {
 		coinFlipPaused = _value;
+		emit CoinFlipPauseToggled(_value);
 	}
 
 	function rescueAssets(
@@ -154,6 +185,7 @@ contract CoinFlipper is
 			_nftId
 		);
 
+		emit CoinFlipInitiated(msg.sender, _configId, reqHash, _choice, _nftId);
 		return reqHash;
 	}
 
@@ -168,6 +200,8 @@ contract CoinFlipper is
 			1,
 			""
 		);
+
+		emit DegenPrizeClaimed(msg.sender);
 	}
 
 	// ---------- VRF function override ----------
@@ -191,6 +225,13 @@ contract CoinFlipper is
 			_addToConfigPool(data);
 			playersWinStreak[data.player] = 0;
 		}
+
+		emit CoinFlipResolved(
+			data.player,
+			data.configId,
+			_reqHash,
+			result == userChoice
+		);
 	}
 
 	// ---------- Private functions ----------
@@ -202,6 +243,7 @@ contract CoinFlipper is
 
 		if (coinFlipConfigs[_data.configId].tokenType == 721) {
 			tokenOfConfigByIndex[_data.configId][config.supply - 1] = _data.nftId;
+			emit ConfigNFTAdded(_data.configId, _data.nftId, config.supply - 1);
 		}
 	}
 
